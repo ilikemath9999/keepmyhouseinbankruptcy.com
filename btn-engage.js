@@ -65,13 +65,25 @@
       var url = new URL(href, location.origin);
     } catch (_) { return; }
 
+    // Screener conversion -- track clicks to 1328f.com/org as high-value conversions
+    if (/1328f\.(com|org)/i.test(href)) {
+      gtag('event', 'screener_click', {
+        event_category: 'conversion',
+        event_label: href,
+        source_page: path,
+        source_domain: host
+      });
+    }
+
     if (url.hostname === host) {
+      // Internal nav within same site
       gtag('event', 'internal_click', {
         from_page: path,
         to_page: url.pathname,
         site: host
       });
-    } else if (url.hostname.match(/1328f\.(com|org)|bankruptcymill\.(com|org)|automaticstay\.org|meanstest\.org|341meeting\.org|523a\.org|109g\.org|727a8\.(com|org)|relieffromstay\.org|dischargeinjunction\.(com|org)|prosedebtors\.org|whatischapter7\.(com|org)|chapter13plan\.org|lienstripping\.org|nondischargeable\.org|bankruptcyfreshstart\.org|reaffirmationagreement\.org|dischargebar\.org|section1328\.org|bankruptcytaxes\.org|dismissedbankruptcy\.org|serialfiler\.org|codebtorstay\.org|bankruptcyhardship\.org|voluntarypetition\.org|section329\.org|section1191\.org|section1192\.org|dismissalrate\.org|bankruptcymalpractice\.org|prosebankruptcy\.org|bankruptcymeanstest\.org|howtofilebankruptcy\.org|garnishedwages\.org|canifileagain\.org|chapter7vs13\.org|bankruptcystudentloans\.org|howmuchdoesbankruptcycost\.com|524injunction\.com|filebankruptcyagain\.com|prosequestion\.com|bankruptcydismissed\.com|keepmyhouseinbankruptcy\.com/)) {
+    } else if (url.hostname.match(/1328f\.(com|org)|bankruptcymill\.(com|org)|automaticstay\.org|meanstest\.org|341meeting\.org|523a\.org|109g\.org|727a8\.(com|org)|relieffromstay\.org|dischargeinjunction\.(com|org)|prosedebtors\.org|whatischapter7\.(com|org)|chapter13plan\.org|lienstripping\.org|nondischargeable\.org|bankruptcyfreshstart\.org|reaffirmationagreement\.org|dischargebar\.org|section1328\.org|bankruptcytaxes\.org|dismissedbankruptcy\.org|serialfiler\.org|codebtorstay\.org|bankruptcyhardship\.org|voluntarypetition\.org|section329\.org|section1191\.org|section1192\.org|dismissalrate\.org|bankruptcymalpractice\.org|prosebankruptcy\.org|bankruptcymeanstest\.org|howtofilebankruptcy\.org|garnishedwages\.org|canifileagain\.org|chapter7vs13\.org|bankruptcystudentloans\.org|howmuchdoesbankruptcycost\.com|524injunction\.com|filebankruptcyagain\.com|prosequestion\.com|bankruptcydismissed\.com/)) {
+      // Cross-network link
       gtag('event', 'network_click', {
         from_site: host,
         from_page: path,
@@ -79,6 +91,7 @@
         to_page: url.pathname
       });
     } else {
+      // External outbound
       gtag('event', 'outbound_click', {
         from_page: path,
         site: host,
@@ -101,7 +114,7 @@
     });
   });
 
-  // 5. Page engagement signal at 10s
+  // 5. Page engagement signal at 10s (GA4 counts as "engaged session")
   setTimeout(function() {
     gtag('event', 'page_engaged', {
       page_path: path,
@@ -109,7 +122,7 @@
     });
   }, 10000);
 
-  // 6. Copy-to-clipboard tracking
+  // 6. Copy-to-clipboard tracking -- signals high-intent users (attorneys, filers)
   document.addEventListener('copy', function() {
     var sel = (window.getSelection() || '').toString().trim();
     if (sel.length > 5) {
@@ -137,8 +150,10 @@
     }
   });
 
-  // 8. Core Web Vitals -- LCP, CLS, INP
+  // 8. Core Web Vitals -- LCP, CLS, INP (Google ranking factors)
+  // Uses PerformanceObserver API (no external library needed)
   if (typeof PerformanceObserver !== 'undefined') {
+    // Largest Contentful Paint
     try {
       new PerformanceObserver(function(list) {
         var entries = list.getEntries();
@@ -155,6 +170,7 @@
       }).observe({ type: 'largest-contentful-paint', buffered: true });
     } catch (_) {}
 
+    // Cumulative Layout Shift
     try {
       var clsValue = 0;
       new PerformanceObserver(function(list) {
@@ -162,6 +178,7 @@
           if (!entry.hadRecentInput) clsValue += entry.value;
         }
       }).observe({ type: 'layout-shift', buffered: true });
+      // Report CLS on page hide
       document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'hidden' && clsValue > 0) {
           gtag('event', 'web_vitals', {
@@ -175,6 +192,7 @@
       });
     } catch (_) {}
 
+    // Interaction to Next Paint (replaces FID)
     try {
       new PerformanceObserver(function(list) {
         for (var entry of list.getEntries()) {
@@ -192,7 +210,8 @@
     } catch (_) {}
   }
 
-  // 9. Conversion goals
+  // 9. Conversion goals -- key actions that define success
+  // 3+ pages in session
   var pageCount = parseInt(sessionStorage.getItem('btn_pages') || '0') + 1;
   sessionStorage.setItem('btn_pages', pageCount);
   if (pageCount === 3) {
@@ -202,6 +221,7 @@
     });
   }
 
+  // Ko-fi / support click
   document.addEventListener('click', function(e) {
     var a = e.target.closest('a[href]');
     if (!a) return;
@@ -213,6 +233,7 @@
         site: host
       });
     }
+    // "File a complaint" or bar complaint links
     if (/complaint|bar-complaint|ocdc|disciplinary/i.test(href) || /complaint/i.test(a.textContent)) {
       gtag('event', 'complaint_link_click', {
         destination: href.substring(0, 100),
